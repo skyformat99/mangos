@@ -1,4 +1,4 @@
-// Copyright 2016 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -17,8 +17,9 @@ package tcp
 
 import (
 	"net"
+	"time"
 
-	"github.com/go-mangos/mangos"
+	"nanomsg.org/go-mangos"
 )
 
 // options is used for shared GetOption/SetOption logic.
@@ -46,6 +47,18 @@ func (o options) set(name string, val interface{}) error {
 		default:
 			return mangos.ErrBadValue
 		}
+	case mangos.OptionKeepAliveTime:
+		switch v := val.(type) {
+		case time.Duration:
+			if v.Nanoseconds() >= 0 {
+				o[name] = v
+				return nil
+			} else {
+				return mangos.ErrBadValue
+			}
+		default:
+			return mangos.ErrBadValue
+		}
 	}
 	return mangos.ErrBadOption
 }
@@ -68,18 +81,30 @@ func (o options) configTCP(conn *net.TCPConn) error {
 			return err
 		}
 	}
+	if v, ok := o[mangos.OptionKeepAliveTime]; ok {
+		if err := conn.SetKeepAlivePeriod(v.(time.Duration)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 type dialer struct {
-	addr *net.TCPAddr
+	addr string
 	sock mangos.Socket
 	opts options
 }
 
-func (d *dialer) Dial() (mangos.Pipe, error) {
+func (d *dialer) Dial() (_ mangos.Pipe, err error) {
+	var (
+		addr *net.TCPAddr
+	)
 
-	conn, err := net.DialTCP("tcp", nil, d.addr)
+	if addr, err = mangos.ResolveTCPAddr(d.addr); err != nil {
+		return nil, err
+	}
+
+	conn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +112,7 @@ func (d *dialer) Dial() (mangos.Pipe, error) {
 		conn.Close()
 		return nil, err
 	}
+
 	return mangos.NewConnPipe(conn, d.sock)
 }
 
@@ -160,15 +186,17 @@ func (t *tcpTran) Scheme() string {
 
 func (t *tcpTran) NewDialer(addr string, sock mangos.Socket) (mangos.PipeDialer, error) {
 	var err error
-	d := &dialer{sock: sock, opts: newOptions()}
-
 	if addr, err = mangos.StripScheme(t, addr); err != nil {
 		return nil, err
 	}
 
-	if d.addr, err = mangos.ResolveTCPAddr(addr); err != nil {
+	// check to ensure the provided addr resolves correctly.
+	if _, err = mangos.ResolveTCPAddr(addr); err != nil {
 		return nil, err
 	}
+
+	d := &dialer{addr: addr, sock: sock, opts: newOptions()}
+
 	return d, nil
 }
 

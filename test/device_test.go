@@ -1,4 +1,4 @@
-// Copyright 2015 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -15,31 +15,30 @@
 package test
 
 import (
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/go-mangos/mangos"
-	"github.com/go-mangos/mangos/protocol/pair"
-	"github.com/go-mangos/mangos/protocol/rep"
-	"github.com/go-mangos/mangos/protocol/req"
-	"github.com/go-mangos/mangos/transport/inproc"
-	"github.com/go-mangos/mangos/transport/ipc"
-	"github.com/go-mangos/mangos/transport/tcp"
-	"github.com/go-mangos/mangos/transport/tlstcp"
-	"github.com/go-mangos/mangos/transport/ws"
-	"github.com/go-mangos/mangos/transport/wss"
+	"nanomsg.org/go-mangos"
+	"nanomsg.org/go-mangos/protocol/pair"
+	"nanomsg.org/go-mangos/protocol/rep"
+	"nanomsg.org/go-mangos/protocol/req"
+	"nanomsg.org/go-mangos/transport/inproc"
+	"nanomsg.org/go-mangos/transport/ipc"
+	"nanomsg.org/go-mangos/transport/tcp"
+	"nanomsg.org/go-mangos/transport/tlstcp"
+	"nanomsg.org/go-mangos/transport/ws"
+	"nanomsg.org/go-mangos/transport/wss"
 )
 
 func TestDeviceBadPair(t *testing.T) {
-	s1, err := req.NewSocket()
+	s1, err := req.NewRawSocket()
 	if err != nil {
 		t.Errorf("Failed to open S1: %v", err)
 		return
 	}
 	defer s1.Close()
-	s2, err := pair.NewSocket()
+	s2, err := pair.NewRawSocket()
 	if err != nil {
 		t.Errorf("Failed to open S2: %v", err)
 		return
@@ -60,7 +59,7 @@ func TestDeviceBadPair(t *testing.T) {
 }
 
 func TestDeviceBadSingle(t *testing.T) {
-	s1, err := req.NewSocket()
+	s1, err := req.NewRawSocket()
 	if err != nil {
 		t.Errorf("Failed to open S1: %v", err)
 		return
@@ -81,7 +80,7 @@ func TestDeviceBadSingle(t *testing.T) {
 }
 
 func TestDeviceFirstNil(t *testing.T) {
-	s1, err := pair.NewSocket()
+	s1, err := pair.NewRawSocket()
 	if err != nil {
 		t.Errorf("Failed to open S1: %v", err)
 		return
@@ -99,7 +98,7 @@ func TestDeviceFirstNil(t *testing.T) {
 }
 
 func TestDeviceSecondNil(t *testing.T) {
-	s1, err := pair.NewSocket()
+	s1, err := pair.NewRawSocket()
 	if err != nil {
 		t.Errorf("Failed to open S1: %v", err)
 		return
@@ -130,7 +129,7 @@ func TestDeviceBothNil(t *testing.T) {
 	}
 }
 
-func TestDeviceReqRep(t *testing.T) {
+func TestDeviceCooked(t *testing.T) {
 	s1, err := req.NewSocket()
 	if err != nil {
 		t.Errorf("Failed to open S1: %v", err)
@@ -138,6 +137,32 @@ func TestDeviceReqRep(t *testing.T) {
 	}
 	defer s1.Close()
 	s2, err := rep.NewSocket()
+	if err != nil {
+		t.Errorf("Failed to open S2: %v", err)
+		return
+	}
+	defer s2.Close()
+
+	switch err := mangos.Device(s1, s2); err {
+	case mangos.ErrNotRaw:
+		t.Logf("Got expected err: %v", err)
+		return
+	case nil:
+		t.Errorf("Cooked sockets succeeded")
+		return
+	default:
+		t.Errorf("Got unexpected err: %v", err)
+		return
+	}
+}
+func TestDeviceReqRep(t *testing.T) {
+	s1, err := req.NewRawSocket()
+	if err != nil {
+		t.Errorf("Failed to open S1: %v", err)
+		return
+	}
+	defer s1.Close()
+	s2, err := rep.NewRawSocket()
 	if err != nil {
 		t.Errorf("Failed to open S2: %v", err)
 		return
@@ -195,7 +220,7 @@ func deviceCaseClient() []TestCase {
 }
 
 func testDevLoop(t *testing.T, addr string) {
-	s1, err := pair.NewSocket()
+	s1, err := pair.NewRawSocket()
 	if err != nil {
 		t.Errorf("Failed to open S1: %v", err)
 		return
@@ -232,7 +257,7 @@ func testDevChain(t *testing.T, addr1 string, addr2 string, addr3 string) {
 	var err error
 	s := make([]mangos.Socket, 5)
 	for i := 0; i < 5; i++ {
-		if s[i], err = pair.NewSocket(); err != nil {
+		if s[i], err = pair.NewRawSocket(); err != nil {
 			t.Errorf("Failed to open S1_1: %v", err)
 			return
 		}
@@ -280,35 +305,31 @@ func testDevChain(t *testing.T, addr1 string, addr2 string, addr3 string) {
 }
 
 func TestDeviceChain(t *testing.T) {
-	testDevChain(t, AddrTestTCP, AddrTestWS, AddrTestInp)
+	testDevChain(t, AddrTestTCP(), AddrTestWS(), AddrTestInp())
 	// Some platforms (windows) need a little time to wind up the close
 	time.Sleep(100 * time.Millisecond)
 }
 
 func TestDeviceLoopTCP(t *testing.T) {
-	testDevLoop(t, AddrTestTCP)
+	testDevLoop(t, AddrTestTCP())
 }
 
 func TestDeviceLoopInp(t *testing.T) {
-	testDevLoop(t, AddrTestInp)
+	testDevLoop(t, AddrTestInp())
 }
 
 func TestDeviceLoopIPC(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("IPC not supported on Windows")
-	} else {
-		testDevLoop(t, AddrTestIPC)
-	}
+	testDevLoop(t, AddrTestIPC())
 }
 
 func TestDeviceLoopTLS(t *testing.T) {
-	testDevLoop(t, AddrTestTLS)
+	testDevLoop(t, AddrTestTLS())
 }
 
 func TestDeviceLoopWS(t *testing.T) {
-	testDevLoop(t, AddrTestWS)
+	testDevLoop(t, AddrTestWS())
 }
 
 func TestDeviceLoopWSS(t *testing.T) {
-	testDevLoop(t, AddrTestWSS)
+	testDevLoop(t, AddrTestWSS())
 }

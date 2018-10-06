@@ -1,4 +1,4 @@
-// Copyright 2015 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-mangos/mangos"
+	"nanomsg.org/go-mangos"
 )
 
 type pair struct {
@@ -56,6 +56,10 @@ func (x *pair) sender(ep *pairEp) {
 	for {
 		select {
 		case m := <-sq:
+			if m == nil {
+				sq = x.sock.SendChannel()
+				continue
+			}
 			if ep.ep.SendMsg(m) != nil {
 				m.Free()
 				return
@@ -130,16 +134,7 @@ func (*pair) PeerName() string {
 }
 
 func (x *pair) SetOption(name string, v interface{}) error {
-	var ok bool
-	switch name {
-	case mangos.OptionRaw:
-		if x.raw, ok = v.(bool); !ok {
-			return mangos.ErrBadValue
-		}
-		return nil
-	default:
-		return mangos.ErrBadOption
-	}
+	return mangos.ErrBadOption
 }
 
 func (x *pair) GetOption(name string) (interface{}, error) {
@@ -153,5 +148,10 @@ func (x *pair) GetOption(name string) (interface{}, error) {
 
 // NewSocket allocates a new Socket using the PAIR protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&pair{}), nil
+	return mangos.MakeSocket(&pair{raw: false}), nil
+}
+
+// NewRawSocket allocates a raw Socket using the PAIR protocol.
+func NewRawSocket() (mangos.Socket, error) {
+	return mangos.MakeSocket(&pair{raw: true}), nil
 }

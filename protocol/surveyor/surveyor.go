@@ -1,4 +1,4 @@
-// Copyright 2016 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-mangos/mangos"
+	"nanomsg.org/go-mangos"
 )
 
 const defaultSurveyTime = time.Second
@@ -78,10 +78,15 @@ func (x *surveyor) Shutdown(expire time.Time) {
 func (x *surveyor) sender() {
 	defer x.w.Done()
 	cq := x.sock.CloseChannel()
+	sq := x.sock.SendChannel()
 	for {
 		var m *mangos.Message
 		select {
-		case m = <-x.sock.SendChannel():
+		case m = <-sq:
+			if m == nil {
+				sq = x.sock.SendChannel()
+				continue
+			}
 		case <-cq:
 			return
 		}
@@ -222,17 +227,6 @@ func (x *surveyor) RecvHook(m *mangos.Message) bool {
 func (x *surveyor) SetOption(name string, val interface{}) error {
 	var ok bool
 	switch name {
-	case mangos.OptionRaw:
-		if x.raw, ok = val.(bool); !ok {
-			return mangos.ErrBadValue
-		}
-		if x.raw {
-			x.timer.Stop()
-			x.sock.SetRecvError(nil)
-		} else {
-			x.sock.SetRecvError(mangos.ErrProtoState)
-		}
-		return nil
 	case mangos.OptionSurveyTime:
 		x.Lock()
 		x.duration, ok = val.(time.Duration)
@@ -275,5 +269,10 @@ func (x *surveyor) GetOption(name string) (interface{}, error) {
 
 // NewSocket allocates a new Socket using the SURVEYOR protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&surveyor{duration: defaultSurveyTime}), nil
+	return mangos.MakeSocket(&surveyor{duration: defaultSurveyTime, raw: false}), nil
+}
+
+// NewRawSocket allocates a raw Socket using the SURVEYOR protocol.
+func NewRawSocket() (mangos.Socket, error) {
+	return mangos.MakeSocket(&surveyor{duration: defaultSurveyTime, raw: true}), nil
 }

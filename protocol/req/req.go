@@ -1,4 +1,4 @@
-// Copyright 2015 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-mangos/mangos"
+	"nanomsg.org/go-mangos"
 )
 
 // req is an implementation of the req protocol.
@@ -188,6 +188,7 @@ func (r *req) AddEndpoint(ep mangos.Endpoint) {
 	pe := &reqEp{cq: make(chan struct{}), ep: ep}
 	r.Lock()
 	r.eps[ep.GetID()] = pe
+
 	r.Unlock()
 	go r.receiver(ep)
 	r.w.Add()
@@ -252,8 +253,9 @@ func (r *req) RecvHook(m *mangos.Message) bool {
 		return false
 	}
 	r.waker.Stop()
-	r.reqmsg.Free()
+	m = r.reqmsg
 	r.reqmsg = nil
+	m.Free()
 	r.sock.SetRecvError(mangos.ErrProtoState)
 	return true
 }
@@ -261,16 +263,6 @@ func (r *req) RecvHook(m *mangos.Message) bool {
 func (r *req) SetOption(option string, value interface{}) error {
 	var ok bool
 	switch option {
-	case mangos.OptionRaw:
-		if r.raw, ok = value.(bool); !ok {
-			return mangos.ErrBadValue
-		}
-		if r.raw {
-			r.sock.SetRecvError(nil)
-		} else {
-			r.sock.SetRecvError(mangos.ErrProtoState)
-		}
-		return nil
 	case mangos.OptionRetryTime:
 		r.Lock()
 		r.retry, ok = value.(time.Duration)
@@ -300,5 +292,10 @@ func (r *req) GetOption(option string) (interface{}, error) {
 
 // NewSocket allocates a new Socket using the REQ protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&req{}), nil
+	return mangos.MakeSocket(&req{raw: false}), nil
+}
+
+// NewRawSocket allocates a raw Socket using the REQ protocol.
+func NewRawSocket() (mangos.Socket, error) {
+	return mangos.MakeSocket(&req{raw: true}), nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2016 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -53,7 +53,7 @@ type socket struct {
 	linger     time.Duration
 	maxRxSize  int // max recv size
 
-	pipes []*pipe
+	pipes map[*pipe]struct{}
 
 	listeners []*listener
 
@@ -87,9 +87,13 @@ func (sock *socket) addPipe(tranpipe Pipe, d *dialer, l *listener) *pipe {
 		}
 		sock.Lock()
 	}
+	if sock.pipes == nil {
+		sock.Unlock()
+		p.Close()
+		return nil
+	}
 	p.sock = sock
-	p.index = len(sock.pipes)
-	sock.pipes = append(sock.pipes, p)
+	sock.pipes[p] = struct{}{}
 	sock.Unlock()
 	sock.proto.AddEndpoint(p)
 	return p
@@ -100,12 +104,7 @@ func (sock *socket) remPipe(p *pipe) {
 	sock.proto.RemoveEndpoint(p)
 
 	sock.Lock()
-	if p.index >= 0 {
-		sock.pipes[p.index] = sock.pipes[len(sock.pipes)-1]
-		sock.pipes[p.index].index = p.index
-		sock.pipes = sock.pipes[:len(sock.pipes)-1]
-		p.index = -1
-	}
+	delete(sock.pipes, p)
 	sock.Unlock()
 }
 
@@ -123,6 +122,7 @@ func newSocket(proto Protocol) *socket {
 	sock.transports = make(map[string]Transport)
 	sock.linger = time.Second
 	sock.maxRxSize = defaultMaxRxSize
+	sock.pipes = make(map[*pipe]struct{})
 
 	// Add some conditionals now -- saves checks later
 	if i, ok := interface{}(proto).(ProtocolRecvHook); ok {
@@ -200,7 +200,8 @@ func (sock *socket) Close() error {
 	for _, l := range sock.listeners {
 		l.l.Close()
 	}
-	pipes := append([]*pipe{}, sock.pipes...)
+	pipes := sock.pipes
+	sock.pipes = nil
 	sock.Unlock()
 
 	// A second drain, just to be sure.  (We could have had device or
@@ -210,7 +211,7 @@ func (sock *socket) Close() error {
 	// And tell the protocol to shutdown and drain its pipes too.
 	sock.proto.Shutdown(fin)
 
-	for _, p := range pipes {
+	for p := range pipes {
 		p.Close()
 	}
 
@@ -235,15 +236,17 @@ func (sock *socket) SendMsg(msg *Message) error {
 	}
 	sock.Lock()
 	useBestEffort := sock.bestEffort
-	if sock.wdeadline != 0 {
-		msg.expire = time.Now().Add(sock.wdeadline)
+	wdeadline := sock.wdeadline
+
+	if wdeadline != 0 {
+		msg.expire = time.Now().Add(wdeadline)
 	} else {
 		msg.expire = time.Time{}
 	}
 	sock.Unlock()
 
 	if !useBestEffort {
-		timeout := mkTimer(sock.wdeadline)
+		timeout := mkTimer(wdeadline)
 		select {
 		case <-timeout:
 			return ErrSendTimeout
@@ -449,8 +452,10 @@ func (sock *socket) SetOption(name string, value interface{}) error {
 		if length < 0 {
 			return ErrBadValue
 		}
+		owq := sock.uwq
 		sock.uwqLen = length
 		sock.uwq = make(chan *Message, sock.uwqLen)
+		close(owq)
 		return nil
 	case OptionReadQLen:
 		sock.Lock()
@@ -616,6 +621,7 @@ func (d *dialer) dialer() {
 			rtime = d.sock.reconntime
 			d.sock.Lock()
 			if d.closed {
+				d.sock.Unlock()
 				p.Close()
 				return
 			}
@@ -632,8 +638,14 @@ func (d *dialer) dialer() {
 		// we're redialing here
 		select {
 		case <-d.closeq: // dialer closed
+			if p != nil {
+				p.Close()
+			}
 			return
 		case <-d.sock.closeq: // exit if parent socket closed
+			if p != nil {
+				p.Close()
+			}
 			return
 		case <-time.After(rtime):
 			if rtmax > 0 {

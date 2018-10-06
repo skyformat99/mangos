@@ -1,4 +1,4 @@
-// Copyright 2016 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-mangos/mangos"
+	"nanomsg.org/go-mangos"
 )
 
 type repEp struct {
@@ -134,12 +134,17 @@ func (r *rep) receiver(ep mangos.Endpoint) {
 func (r *rep) sender() {
 	defer r.w.Done()
 	cq := r.sock.CloseChannel()
+	sq := r.sock.SendChannel()
 
 	for {
 		var m *mangos.Message
 
 		select {
-		case m = <-r.sock.SendChannel():
+		case m = <-sq:
+			if m == nil {
+				sq = r.sock.SendChannel()
+				continue
+			}
 		case <-cq:
 			return
 		}
@@ -153,8 +158,8 @@ func (r *rep) sender() {
 		m.Header = m.Header[4:]
 		r.Lock()
 		pe := r.eps[id]
-		r.Unlock()
 		if pe == nil {
+			r.Unlock()
 			m.Free()
 			continue
 		}
@@ -163,7 +168,7 @@ func (r *rep) sender() {
 		case pe.q <- m:
 		default:
 			// If our queue is full, we have no choice but to
-			// throw it on the floor.  This shoudn't happen,
+			// throw it on the floor.  This shouldn't happen,
 			// since each partner should be running synchronously.
 			// Devices are a different situation, and this could
 			// lead to lossy behavior there.  Initiators will
@@ -171,6 +176,7 @@ func (r *rep) sender() {
 			// enough queues and be fast enough to avoid this.
 			m.Free()
 		}
+		r.Unlock()
 	}
 }
 
@@ -206,11 +212,11 @@ func (r *rep) RemoveEndpoint(ep mangos.Endpoint) {
 	r.Lock()
 	pe := r.eps[id]
 	delete(r.eps, id)
-	r.Unlock()
 
 	if pe != nil {
 		close(pe.q)
 	}
+	r.Unlock()
 }
 
 // We save the backtrace from this message.  This means that if the app calls
@@ -248,18 +254,7 @@ func (r *rep) SendHook(m *mangos.Message) bool {
 }
 
 func (r *rep) SetOption(name string, v interface{}) error {
-	var ok bool
 	switch name {
-	case mangos.OptionRaw:
-		if r.raw, ok = v.(bool); !ok {
-			return mangos.ErrBadValue
-		}
-		if r.raw {
-			r.sock.SetSendError(nil)
-		} else {
-			r.sock.SetSendError(mangos.ErrProtoState)
-		}
-		return nil
 	case mangos.OptionTTL:
 		if ttl, ok := v.(int); !ok {
 			return mangos.ErrBadValue
@@ -287,5 +282,10 @@ func (r *rep) GetOption(name string) (interface{}, error) {
 
 // NewSocket allocates a new Socket using the REP protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&rep{}), nil
+	return mangos.MakeSocket(&rep{raw: false}), nil
+}
+
+// NewRawSocket allocates a raw Socket using the REP protocol.
+func NewRawSocket() (mangos.Socket, error) {
+	return mangos.MakeSocket(&rep{raw: true}), nil
 }

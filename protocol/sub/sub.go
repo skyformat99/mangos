@@ -1,4 +1,4 @@
-// Copyright 2016 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-mangos/mangos"
+	"nanomsg.org/go-mangos"
 )
 
 type sub struct {
@@ -111,16 +111,10 @@ func (s *sub) SetOption(name string, value interface{}) error {
 	defer s.Unlock()
 
 	var vb []byte
-	var ok bool
 
 	// Check names first, because type check below is only valid for
 	// subscription options.
 	switch name {
-	case mangos.OptionRaw:
-		if s.raw, ok = value.(bool); !ok {
-			return mangos.ErrBadValue
-		}
-		return nil
 	case mangos.OptionSubscribe:
 	case mangos.OptionUnsubscribe:
 	default:
@@ -173,5 +167,10 @@ func (s *sub) GetOption(name string) (interface{}, error) {
 
 // NewSocket allocates a new Socket using the SUB protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&sub{}), nil
+	return mangos.MakeSocket(&sub{raw: false}), nil
+}
+
+// NewRawSocket allocates a raw Socket using the SUB protocol.
+func NewRawSocket() (mangos.Socket, error) {
+	return mangos.MakeSocket(&sub{raw: true}), nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2015 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -20,14 +20,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-mangos/mangos"
-	"github.com/go-mangos/mangos/protocol/pair"
-	"github.com/go-mangos/mangos/transport/inproc"
+	"nanomsg.org/go-mangos"
+	"nanomsg.org/go-mangos/protocol/pair"
+	"nanomsg.org/go-mangos/transport/inproc"
 )
 
 func TestExpireDrop(t *testing.T) {
 	inp := inproc.NewTransport()
-	addr := AddrTestInp + "EXPIRE"
+	addr := AddrTestInp()
 
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows clock resolution too coarse")

@@ -1,4 +1,4 @@
-// Copyright 2016 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-mangos/mangos"
+	"nanomsg.org/go-mangos"
 )
 
 type pubEp struct {
@@ -86,13 +86,18 @@ func (p *pub) sender() {
 	defer p.w.Done()
 
 	cq := p.sock.CloseChannel()
+	sq := p.sock.SendChannel()
 
 	for {
 		select {
 		case <-cq:
 			return
 
-		case m := <-p.sock.SendChannel():
+		case m := <-sq:
+			if m == nil {
+				sq = p.sock.SendChannel()
+				continue
+			}
 
 			p.Lock()
 			for _, peer := range p.eps {
@@ -153,16 +158,7 @@ func (*pub) PeerName() string {
 }
 
 func (p *pub) SetOption(name string, v interface{}) error {
-	var ok bool
-	switch name {
-	case mangos.OptionRaw:
-		if p.raw, ok = v.(bool); !ok {
-			return mangos.ErrBadValue
-		}
-		return nil
-	default:
-		return mangos.ErrBadOption
-	}
+	return mangos.ErrBadOption
 }
 
 func (p *pub) GetOption(name string) (interface{}, error) {
@@ -176,5 +172,10 @@ func (p *pub) GetOption(name string) (interface{}, error) {
 
 // NewSocket allocates a new Socket using the PUB protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&pub{}), nil
+	return mangos.MakeSocket(&pub{raw: false}), nil
+}
+
+// NewRawSocket allocates a raw Socket using the PUB protocol.
+func NewRawSocket() (mangos.Socket, error) {
+	return mangos.MakeSocket(&pub{raw: true}), nil
 }

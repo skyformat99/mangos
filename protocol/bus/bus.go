@@ -1,4 +1,4 @@
-// Copyright 2016 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-mangos/mangos"
+	"nanomsg.org/go-mangos"
 )
 
 type busEp struct {
@@ -105,13 +105,18 @@ func (x *bus) broadcast(m *mangos.Message, sender uint32) {
 
 func (x *bus) sender() {
 	cq := x.sock.CloseChannel()
+	sq := x.sock.SendChannel()
 	defer x.w.Done()
 	for {
 		var id uint32
 		select {
 		case <-cq:
 			return
-		case m := <-x.sock.SendChannel():
+		case m := <-sq:
+			if m == nil {
+				sq = x.sock.SendChannel()
+				continue
+			}
 			// If a header was present, it means this message is
 			// being rebroadcast.  It should be a pipe ID.
 			if len(m.Header) >= 4 {
@@ -199,16 +204,7 @@ func (x *bus) RecvHook(m *mangos.Message) bool {
 }
 
 func (x *bus) SetOption(name string, v interface{}) error {
-	var ok bool
-	switch name {
-	case mangos.OptionRaw:
-		if x.raw, ok = v.(bool); !ok {
-			return mangos.ErrBadValue
-		}
-		return nil
-	default:
-		return mangos.ErrBadOption
-	}
+	return mangos.ErrBadOption
 }
 
 func (x *bus) GetOption(name string) (interface{}, error) {
@@ -222,5 +218,10 @@ func (x *bus) GetOption(name string) (interface{}, error) {
 
 // NewSocket allocates a new Socket using the BUS protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&bus{}), nil
+	return mangos.MakeSocket(&bus{raw: false}), nil
+}
+
+// NewRawSocket allocates a raw Socket using the BUS protocol.
+func NewRawSocket() (mangos.Socket, error) {
+	return mangos.MakeSocket(&bus{raw: true}), nil
 }

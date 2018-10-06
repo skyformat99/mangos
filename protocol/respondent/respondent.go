@@ -1,4 +1,4 @@
-// Copyright 2016 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-mangos/mangos"
+	"nanomsg.org/go-mangos"
 )
 
 type resp struct {
@@ -75,10 +75,15 @@ func (x *resp) sender() {
 
 	defer x.w.Done()
 	cq := x.sock.CloseChannel()
+	sq := x.sock.SendChannel()
 	for {
 		var m *mangos.Message
 		select {
-		case m = <-x.sock.SendChannel():
+		case m = <-sq:
+			if m == nil {
+				sq = x.sock.SendChannel()
+				continue
+			}
 		case <-cq:
 			return
 		}
@@ -243,18 +248,7 @@ func (*resp) PeerName() string {
 }
 
 func (x *resp) SetOption(name string, v interface{}) error {
-	var ok bool
 	switch name {
-	case mangos.OptionRaw:
-		if x.raw, ok = v.(bool); !ok {
-			return mangos.ErrBadValue
-		}
-		if x.raw {
-			x.sock.SetSendError(nil)
-		} else {
-			x.sock.SetSendError(mangos.ErrProtoState)
-		}
-		return nil
 	case mangos.OptionTTL:
 		if ttl, ok := v.(int); !ok {
 			return mangos.ErrBadValue
@@ -282,5 +276,10 @@ func (x *resp) GetOption(name string) (interface{}, error) {
 
 // NewSocket allocates a new Socket using the RESPONDENT protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&resp{}), nil
+	return mangos.MakeSocket(&resp{raw: false}), nil
+}
+
+// NewRawSocket allocates a raw Socket using the RESPONDENT protocol.
+func NewRawSocket() (mangos.Socket, error) {
+	return mangos.MakeSocket(&resp{raw: true}), nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2015 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -19,7 +19,7 @@ package pull
 import (
 	"time"
 
-	"github.com/go-mangos/mangos"
+	"nanomsg.org/go-mangos"
 )
 
 type pull struct {
@@ -79,16 +79,7 @@ func (*pull) SendHook(msg *mangos.Message) bool {
 }
 
 func (x *pull) SetOption(name string, v interface{}) error {
-	var ok bool
-	switch name {
-	case mangos.OptionRaw:
-		if x.raw, ok = v.(bool); !ok {
-			return mangos.ErrBadValue
-		}
-		return nil
-	default:
-		return mangos.ErrBadOption
-	}
+	return mangos.ErrBadOption
 }
 
 func (x *pull) GetOption(name string) (interface{}, error) {
@@ -102,5 +93,10 @@ func (x *pull) GetOption(name string) (interface{}, error) {
 
 // NewSocket allocates a new Socket using the PULL protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&pull{}), nil
+	return mangos.MakeSocket(&pull{raw: false}), nil
+}
+
+// NewRawSocket allocates a raw Socket using the PULL protocol.
+func NewRawSocket() (mangos.Socket, error) {
+	return mangos.MakeSocket(&pull{raw: true}), nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2015 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -17,9 +17,9 @@ package test
 import (
 	"testing"
 
-	"github.com/go-mangos/mangos"
-	"github.com/go-mangos/mangos/protocol/rep"
-	"github.com/go-mangos/mangos/protocol/req"
+	"nanomsg.org/go-mangos"
+	"nanomsg.org/go-mangos/protocol/rep"
+	"nanomsg.org/go-mangos/protocol/req"
 )
 
 type reqTest struct {
@@ -150,25 +150,25 @@ func TestReqRepWSS(t *testing.T) {
 }
 
 func TestReqRepTTLZero(t *testing.T) {
-	SetTTLZero(t, rep.NewSocket)
+	SetTTLZero(t, rep.NewRawSocket)
 }
 
 func TestReqRepTTLNegative(t *testing.T) {
-	SetTTLNegative(t, rep.NewSocket)
+	SetTTLNegative(t, rep.NewRawSocket)
 }
 
 func TestReqRepTTLTooBig(t *testing.T) {
-	SetTTLTooBig(t, rep.NewSocket)
+	SetTTLTooBig(t, rep.NewRawSocket)
 }
 
 func TestReqRepTTLNotInt(t *testing.T) {
-	SetTTLNotInt(t, rep.NewSocket)
+	SetTTLNotInt(t, rep.NewRawSocket)
 }
 
 func TestReqRepTTLSet(t *testing.T) {
-	SetTTL(t, rep.NewSocket)
+	SetTTL(t, rep.NewRawSocket)
 }
 
 func TestReqRepTTLDrop(t *testing.T) {
-	TTLDropTest(t, req.NewSocket, rep.NewSocket)
+	TTLDropTest(t, req.NewSocket, rep.NewSocket, req.NewRawSocket, rep.NewRawSocket)
 }

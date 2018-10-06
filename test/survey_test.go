@@ -1,4 +1,4 @@
-// Copyright 2015 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-mangos/mangos"
-	"github.com/go-mangos/mangos/protocol/respondent"
-	"github.com/go-mangos/mangos/protocol/surveyor"
+	"nanomsg.org/go-mangos"
+	"nanomsg.org/go-mangos/protocol/respondent"
+	"nanomsg.org/go-mangos/protocol/surveyor"
 )
 
 type surveyTest struct {
@@ -164,25 +164,26 @@ func TestSurveyWSS(t *testing.T) {
 }
 
 func TestSurveyTTLZero(t *testing.T) {
-	SetTTLZero(t, respondent.NewSocket)
+	SetTTLZero(t, respondent.NewRawSocket)
 }
 
 func TestSurveyTTLNegative(t *testing.T) {
-	SetTTLNegative(t, respondent.NewSocket)
+	SetTTLNegative(t, respondent.NewRawSocket)
 }
 
 func TestSurveyTTLTooBig(t *testing.T) {
-	SetTTLTooBig(t, respondent.NewSocket)
+	SetTTLTooBig(t, respondent.NewRawSocket)
 }
 
 func TestSurveyTTLNotInt(t *testing.T) {
-	SetTTLNotInt(t, respondent.NewSocket)
+	SetTTLNotInt(t, respondent.NewRawSocket)
 }
 
 func TestSurveyTTLSet(t *testing.T) {
-	SetTTL(t, respondent.NewSocket)
+	SetTTL(t, respondent.NewRawSocket)
 }
 
 func TestSurveyTTLDrop(t *testing.T) {
-	TTLDropTest(t, surveyor.NewSocket, respondent.NewSocket)
+	TTLDropTest(t, surveyor.NewSocket, respondent.NewSocket,
+		surveyor.NewRawSocket, respondent.NewRawSocket)
 }

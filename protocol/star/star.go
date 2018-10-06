@@ -1,4 +1,4 @@
-// Copyright 2016 The Mangos Authors
+// Copyright 2018 The Mangos Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-mangos/mangos"
+	"nanomsg.org/go-mangos"
 )
 
 type starEp struct {
@@ -126,12 +126,17 @@ func (x *star) broadcast(m *mangos.Message, sender *starEp) {
 func (x *star) sender() {
 	defer x.w.Done()
 	cq := x.sock.CloseChannel()
+	sq := x.sock.SendChannel()
 
 	for {
 		select {
 		case <-cq:
 			return
-		case m := <-x.sock.SendChannel():
+		case m := <-sq:
+			if m == nil {
+				sq = x.sock.SendChannel()
+				continue
+			}
 			x.broadcast(m, nil)
 		}
 	}
@@ -206,13 +211,7 @@ func (*star) PeerName() string {
 }
 
 func (x *star) SetOption(name string, v interface{}) error {
-	var ok bool
 	switch name {
-	case mangos.OptionRaw:
-		if x.raw, ok = v.(bool); !ok {
-			return mangos.ErrBadValue
-		}
-		return nil
 	case mangos.OptionTTL:
 		if ttl, ok := v.(int); !ok {
 			return mangos.ErrBadValue
@@ -251,5 +250,10 @@ func (x *star) SendHook(m *mangos.Message) bool {
 
 // NewSocket allocates a new Socket using the STAR protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&star{}), nil
+	return mangos.MakeSocket(&star{raw: false}), nil
+}
+
+// NewRawSocket allocates a raw Socket using the STAR protocol.
+func NewRawSocket() (mangos.Socket, error) {
+	return mangos.MakeSocket(&star{raw: true}), nil
 }
