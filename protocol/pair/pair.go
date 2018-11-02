@@ -134,7 +134,16 @@ func (*pair) PeerName() string {
 }
 
 func (x *pair) SetOption(name string, v interface{}) error {
-	return mangos.ErrBadOption
+	var ok bool
+	switch name {
+	case mangos.OptionRaw:
+		if x.raw, ok = v.(bool); !ok {
+			return mangos.ErrBadValue
+		}
+		return nil
+	default:
+		return mangos.ErrBadOption
+	}
 }
 
 func (x *pair) GetOption(name string) (interface{}, error) {
@@ -146,12 +155,10 @@ func (x *pair) GetOption(name string) (interface{}, error) {
 	}
 }
 
+// NewProtocol returns a new PAIR protocol instance.
+func NewProtocol() mangos.Protocol { return &pair{} }
+
 // NewSocket allocates a new Socket using the PAIR protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&pair{raw: false}), nil
-}
-
-// NewRawSocket allocates a raw Socket using the PAIR protocol.
-func NewRawSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&pair{raw: true}), nil
+	return mangos.MakeSocket(NewProtocol()), nil
 }

@@ -111,10 +111,16 @@ func (s *sub) SetOption(name string, value interface{}) error {
 	defer s.Unlock()
 
 	var vb []byte
+	var ok bool
 
 	// Check names first, because type check below is only valid for
 	// subscription options.
 	switch name {
+	case mangos.OptionRaw:
+		if s.raw, ok = value.(bool); !ok {
+			return mangos.ErrBadValue
+		}
+		return nil
 	case mangos.OptionSubscribe:
 	case mangos.OptionUnsubscribe:
 	default:
@@ -165,12 +171,10 @@ func (s *sub) GetOption(name string) (interface{}, error) {
 	}
 }
 
+// NewProtocol returns a new SUB protocol instance.
+func NewProtocol() mangos.Protocol { return &sub{} }
+
 // NewSocket allocates a new Socket using the SUB protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&sub{raw: false}), nil
-}
-
-// NewRawSocket allocates a raw Socket using the SUB protocol.
-func NewRawSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&sub{raw: true}), nil
+	return mangos.MakeSocket(NewProtocol()), nil
 }

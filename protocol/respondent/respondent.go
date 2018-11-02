@@ -248,7 +248,18 @@ func (*resp) PeerName() string {
 }
 
 func (x *resp) SetOption(name string, v interface{}) error {
+	var ok bool
 	switch name {
+	case mangos.OptionRaw:
+		if x.raw, ok = v.(bool); !ok {
+			return mangos.ErrBadValue
+		}
+		if x.raw {
+			x.sock.SetSendError(nil)
+		} else {
+			x.sock.SetSendError(mangos.ErrProtoState)
+		}
+		return nil
 	case mangos.OptionTTL:
 		if ttl, ok := v.(int); !ok {
 			return mangos.ErrBadValue
@@ -274,12 +285,10 @@ func (x *resp) GetOption(name string) (interface{}, error) {
 	}
 }
 
+// NewProtocol returns a new RESP protocol instance.
+func NewProtocol() mangos.Protocol { return &resp{} }
+
 // NewSocket allocates a new Socket using the RESPONDENT protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&resp{raw: false}), nil
-}
-
-// NewRawSocket allocates a raw Socket using the RESPONDENT protocol.
-func NewRawSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&resp{raw: true}), nil
+	return mangos.MakeSocket(NewProtocol()), nil
 }

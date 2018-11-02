@@ -109,7 +109,16 @@ func (x *push) RemoveEndpoint(ep mangos.Endpoint) {
 }
 
 func (x *push) SetOption(name string, v interface{}) error {
-	return mangos.ErrBadOption
+	var ok bool
+	switch name {
+	case mangos.OptionRaw:
+		if x.raw, ok = v.(bool); !ok {
+			return mangos.ErrBadValue
+		}
+		return nil
+	default:
+		return mangos.ErrBadOption
+	}
 }
 
 func (x *push) GetOption(name string) (interface{}, error) {
@@ -121,12 +130,10 @@ func (x *push) GetOption(name string) (interface{}, error) {
 	}
 }
 
+// NewProtocol returns a new PUSH protocol instance.
+func NewProtocol() mangos.Protocol { return &push{} }
+
 // NewSocket allocates a new Socket using the PUSH protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&push{raw: false}), nil
-}
-
-// NewRawSocket allocates a raw Socket using the PUSH protocol.
-func NewRawSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&push{raw: true}), nil
+	return mangos.MakeSocket(NewProtocol()), nil
 }

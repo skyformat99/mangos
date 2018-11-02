@@ -211,7 +211,13 @@ func (*star) PeerName() string {
 }
 
 func (x *star) SetOption(name string, v interface{}) error {
+	var ok bool
 	switch name {
+	case mangos.OptionRaw:
+		if x.raw, ok = v.(bool); !ok {
+			return mangos.ErrBadValue
+		}
+		return nil
 	case mangos.OptionTTL:
 		if ttl, ok := v.(int); !ok {
 			return mangos.ErrBadValue
@@ -248,12 +254,10 @@ func (x *star) SendHook(m *mangos.Message) bool {
 	return true
 }
 
+// NewProtocol returns a new STAR protocol instance.
+func NewProtocol() mangos.Protocol { return &star{} }
+
 // NewSocket allocates a new Socket using the STAR protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&star{raw: false}), nil
-}
-
-// NewRawSocket allocates a raw Socket using the STAR protocol.
-func NewRawSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&star{raw: true}), nil
+	return mangos.MakeSocket(NewProtocol()), nil
 }

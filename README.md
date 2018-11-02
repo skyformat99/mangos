@@ -2,7 +2,6 @@
 
 
 [![Linux Status](https://img.shields.io/circleci/project/github/nanomsg/mangos.svg?label=linux)](https://circleci.com/gh/nanomsg/mangos)
-[![Windows Status](https://img.shields.io/appveyor/ci/nanomsg/mangos.svg?label=windows)](https://ci.appveyor.com/project/nanomsg/mangos)
 [![Apache License](https://img.shields.io/badge/license-APACHE2-blue.svg)](https://github.com/nanomsg/mangos/blob/master/LICENSE)
 [![Gitter](https://img.shields.io/badge/gitter-join-brightgreen.svg)](https://gitter.im/go-mangos/mangos)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/nanomsg.org/go-mangos)
@@ -13,6 +12,12 @@ Package mangos is an implementation in pure Go of the SP
 messaging system.
 This makes heavy use of go channels, internally, but it can operate
 on systems that lack support for cgo.
+
+> TIP: This is mangos version 1, but
+> [mangos v2](http://github.com/nanomsg/mangos-v2) is available.
+> Version 2 has some API breaking changes relative to version 1,
+> but introduces new and
+> useful features, and is recommended for new development.
 
 > NOTE: The repository has moved from github.com/go-mangos/mangos.
 > Please import using nanomsg.org/go-mangos.  Also, be advised that
@@ -37,7 +42,8 @@ immediate peers, but to all members of the topology.  Developers must be careful
 not to create cycles in their network when using this pattern, otherwise
 infinite loops can occur.
 
-Supported transports include TCP, inproc, IPC, Websocket, Websocket/TLS and TLS.
+Supported transports include TCP, inproc, IPC, WebSocket, WebSocket over TLS and
+TLS over TCP.
 Use addresses of the form "tls+tcp://<host>:<port>" to access TLS.
 Note that ipc:// is not supported on Windows (by either this or the reference
 implementation.)  Forcing the local TCP port in Dial is not supported yet (this

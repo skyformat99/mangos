@@ -204,7 +204,16 @@ func (x *bus) RecvHook(m *mangos.Message) bool {
 }
 
 func (x *bus) SetOption(name string, v interface{}) error {
-	return mangos.ErrBadOption
+	var ok bool
+	switch name {
+	case mangos.OptionRaw:
+		if x.raw, ok = v.(bool); !ok {
+			return mangos.ErrBadValue
+		}
+		return nil
+	default:
+		return mangos.ErrBadOption
+	}
 }
 
 func (x *bus) GetOption(name string) (interface{}, error) {
@@ -216,12 +225,10 @@ func (x *bus) GetOption(name string) (interface{}, error) {
 	}
 }
 
+// NewProtocol returns a new BUS protocol instance.
+func NewProtocol() mangos.Protocol { return &bus{} }
+
 // NewSocket allocates a new Socket using the BUS protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&bus{raw: false}), nil
-}
-
-// NewRawSocket allocates a raw Socket using the BUS protocol.
-func NewRawSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&bus{raw: true}), nil
+	return mangos.MakeSocket(NewProtocol()), nil
 }

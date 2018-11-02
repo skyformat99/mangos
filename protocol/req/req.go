@@ -263,6 +263,16 @@ func (r *req) RecvHook(m *mangos.Message) bool {
 func (r *req) SetOption(option string, value interface{}) error {
 	var ok bool
 	switch option {
+	case mangos.OptionRaw:
+		if r.raw, ok = value.(bool); !ok {
+			return mangos.ErrBadValue
+		}
+		if r.raw {
+			r.sock.SetRecvError(nil)
+		} else {
+			r.sock.SetRecvError(mangos.ErrProtoState)
+		}
+		return nil
 	case mangos.OptionRetryTime:
 		r.Lock()
 		r.retry, ok = value.(time.Duration)
@@ -290,12 +300,10 @@ func (r *req) GetOption(option string) (interface{}, error) {
 	}
 }
 
+// NewProtocol returns a new REQ protocol instance.
+func NewProtocol() mangos.Protocol { return &req{} }
+
 // NewSocket allocates a new Socket using the REQ protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&req{raw: false}), nil
-}
-
-// NewRawSocket allocates a raw Socket using the REQ protocol.
-func NewRawSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&req{raw: true}), nil
+	return mangos.MakeSocket(NewProtocol()), nil
 }

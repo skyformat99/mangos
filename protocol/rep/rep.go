@@ -254,7 +254,18 @@ func (r *rep) SendHook(m *mangos.Message) bool {
 }
 
 func (r *rep) SetOption(name string, v interface{}) error {
+	var ok bool
 	switch name {
+	case mangos.OptionRaw:
+		if r.raw, ok = v.(bool); !ok {
+			return mangos.ErrBadValue
+		}
+		if r.raw {
+			r.sock.SetSendError(nil)
+		} else {
+			r.sock.SetSendError(mangos.ErrProtoState)
+		}
+		return nil
 	case mangos.OptionTTL:
 		if ttl, ok := v.(int); !ok {
 			return mangos.ErrBadValue
@@ -280,12 +291,10 @@ func (r *rep) GetOption(name string) (interface{}, error) {
 	}
 }
 
+// NewProtocol returns a new REP protocol instance.
+func NewProtocol() mangos.Protocol { return &rep{} }
+
 // NewSocket allocates a new Socket using the REP protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&rep{raw: false}), nil
-}
-
-// NewRawSocket allocates a raw Socket using the REP protocol.
-func NewRawSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&rep{raw: true}), nil
+	return mangos.MakeSocket(NewProtocol()), nil
 }

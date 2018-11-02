@@ -79,7 +79,16 @@ func (*pull) SendHook(msg *mangos.Message) bool {
 }
 
 func (x *pull) SetOption(name string, v interface{}) error {
-	return mangos.ErrBadOption
+	var ok bool
+	switch name {
+	case mangos.OptionRaw:
+		if x.raw, ok = v.(bool); !ok {
+			return mangos.ErrBadValue
+		}
+		return nil
+	default:
+		return mangos.ErrBadOption
+	}
 }
 
 func (x *pull) GetOption(name string) (interface{}, error) {
@@ -91,12 +100,10 @@ func (x *pull) GetOption(name string) (interface{}, error) {
 	}
 }
 
+// NewProtocol returns a new PULL protocol instance.
+func NewProtocol() mangos.Protocol { return &pull{} }
+
 // NewSocket allocates a new Socket using the PULL protocol.
 func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&pull{raw: false}), nil
-}
-
-// NewRawSocket allocates a raw Socket using the PULL protocol.
-func NewRawSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&pull{raw: true}), nil
+	return mangos.MakeSocket(NewProtocol()), nil
 }

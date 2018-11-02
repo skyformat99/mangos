@@ -227,6 +227,17 @@ func (x *surveyor) RecvHook(m *mangos.Message) bool {
 func (x *surveyor) SetOption(name string, val interface{}) error {
 	var ok bool
 	switch name {
+	case mangos.OptionRaw:
+		if x.raw, ok = val.(bool); !ok {
+			return mangos.ErrBadValue
+		}
+		if x.raw {
+			x.timer.Stop()
+			x.sock.SetRecvError(nil)
+		} else {
+			x.sock.SetRecvError(mangos.ErrProtoState)
+		}
+		return nil
 	case mangos.OptionSurveyTime:
 		x.Lock()
 		x.duration, ok = val.(time.Duration)
@@ -267,12 +278,12 @@ func (x *surveyor) GetOption(name string) (interface{}, error) {
 	}
 }
 
-// NewSocket allocates a new Socket using the SURVEYOR protocol.
-func NewSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&surveyor{duration: defaultSurveyTime, raw: false}), nil
+// NewProtocol returns a new SURVEYOR protocol instance.
+func NewProtocol() mangos.Protocol {
+	return &surveyor{duration: defaultSurveyTime}
 }
 
-// NewRawSocket allocates a raw Socket using the SURVEYOR protocol.
-func NewRawSocket() (mangos.Socket, error) {
-	return mangos.MakeSocket(&surveyor{duration: defaultSurveyTime, raw: true}), nil
+// NewSocket allocates a new Socket using the SURVEYOR protocol.
+func NewSocket() (mangos.Socket, error) {
+	return mangos.MakeSocket(NewProtocol()), nil
 }
