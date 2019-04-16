@@ -34,6 +34,28 @@ func (o options) get(name string) (interface{}, error) {
 
 func (o options) set(name string, val interface{}) error {
 	switch name {
+	case mangos.OptionNoDelay:
+		fallthrough
+	case mangos.OptionKeepAlive:
+		switch v := val.(type) {
+		case bool:
+			o[name] = v
+			return nil
+		default:
+			return mangos.ErrBadValue
+		}
+	case mangos.OptionKeepAliveTime:
+		switch v := val.(type) {
+		case time.Duration:
+			if v.Nanoseconds() >= 0 {
+				o[name] = v
+				return nil
+			} else {
+				return mangos.ErrBadValue
+			}
+		default:
+			return mangos.ErrBadValue
+		}
 	case mangos.OptionTLSConfig:
 		switch v := val.(type) {
 		case *tls.Config:
@@ -216,7 +238,7 @@ func (t *tlsTran) NewDialer(addr string, sock mangos.Socket) (mangos.PipeDialer,
 	return d, nil
 }
 
-// NewAccepter implements the Transport NewAccepter method.
+// NewListener implements the Transport NewAccepter method.
 func (t *tlsTran) NewListener(addr string, sock mangos.Socket) (mangos.PipeListener, error) {
 	var err error
 	l := &listener{sock: sock, opts: newOptions(t)}
